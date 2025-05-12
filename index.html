@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>预约管理系统后台</title>
+    <style>
+        /* 增强型表格样式 */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .data-table th {
+            background: #f5f7fa;
+            padding: 12px;
+            border-bottom: 2px solid #e4e7ed;
+        }
+        .data-table td {
+            padding: 12px;
+            border-bottom: 1px solid #ebeef5;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+        .status-pending { background: #fdf6ec; color: #e6a23c; }
+        .status-used { background: #f0f9eb; color: #67c23a; }
+        .status-expired { background: #fef0f0; color: #f56c6c; }
+        .action-group button {
+            margin: 0 5px;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>预约记录管理</h2>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>预约日期</th>
+                    <th>客户姓名</th>
+                    <th>联系方式</th>
+                    <th>时间段</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="dataBody"></tbody>
+        </table>
+    </div>
+
+    <script>
+        // 强化版数据加载
+        const loadRecords = () => {
+            try {
+                const data = localStorage.getItem('yuexiang');
+                return data ? JSON.parse(data) : [];
+            } catch (e) {
+                console.error('数据解析错误:', e);
+                return [];
+            }
+        }
+
+        // 状态自动更新逻辑
+        const updateStatus = (records) => {
+            const now = new Date().getTime();
+            return records.map(record => {
+                const [year, month, day] = record.date.split('-');
+                const bookingTime = new Date(year, month-1, day).getTime();
+                
+                if (!record.status) record.status = '未使用'; // 旧数据兼容处理:ml-citation{ref="4" data="citationList"}
+                if (bookingTime < now && record.status === '未使用') {
+                    record.status = '过期未使用';
+                }
+                return record;
+            });
+        }
+
+        // 删除操作增强
+        const handleDelete = (timestamp) => {
+            if (!confirm('确定删除该记录？')) return;
+            const records = loadRecords().filter(r => r.timestamp !== timestamp);
+            localStorage.setItem('yuexiang', JSON.stringify(records));
+            renderTable();
+        }
+
+        // 表格渲染逻辑
+        const renderTable = () => {
+            const tbody = document.getElementById('dataBody');
+            let records = updateStatus(loadRecords());
+            
+            tbody.innerHTML = records.map(record => `
+                <tr>
+                    <td>${record.date}</td>
+                    <td>${record.name || '未填写'}</td>
+                    <td>${record.phone}</td>
+                    <td>${record.time}</td>
+                    <td>
+                        <span class="status-badge status-${getStatusClass(record.status)}">
+                            ${record.status}
+                        </span>
+                    </td>
+                    <td class="action-group">
+                        <button onclick="handleDelete(${record.timestamp})" 
+                            style="background:#f56c6c;color:white">删除</button>
+                        ${record.status === '未使用' ? 
+                            `<button onclick="markAsUsed(${record.timestamp})" 
+                                style="background:#67c23a;color:white">标记已用</button>` : ''}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // 辅助函数
+        const getStatusClass = (status) => {
+            const map = { '未使用':'pending', '已使用':'used', '过期未使用':'expired' };
+            return map[status] || 'pending';
+        }
+
+        // 标记已使用功能
+        const markAsUsed = (timestamp) => {
+            const records = loadRecords().map(r => {
+                if (r.timestamp === timestamp) r.status = '已使用';
+                return r;
+            });
+            localStorage.setItem('yuexiang', JSON.stringify(records));
+            renderTable();
+        }
+
+        // 初始化执行
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!localStorage.getItem('yuexiang')) {
+                localStorage.setItem('yuexiang', '[]'); // 防止首次打开空白:ml-citation{ref="1" data="citationList"}
+            }
+            renderTable();
+        });
+    </script>
+</body>
+</html>
