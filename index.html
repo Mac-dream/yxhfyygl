@@ -1,104 +1,148 @@
-<!-- 后台文件 admin.html -->
+<!-- 后台管理系统 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>后台管理系统</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 1200px; margin: 20px auto; padding: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-        .login-form { max-width: 300px; margin: 100px auto; }
-        .hidden { display: none; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            margin: 15px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #eee;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+        }
+        th, td {
+            padding: 14px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th { background: #f8f9fa; }
+        .status-btn {
+            padding: 6px 12px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .status-active { background: #e8f5e9; color: #2e7d32; }
+        .status-inactive { background: #ffebee; color: #c62828; }
+        .action-btn {
+            padding: 6px 10px;
+            margin: 0 4px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .refresh-btn {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            float: right;
+        }
+        @media (max-width: 768px) {
+            .container { padding: 15px; }
+            th, td { padding: 12px; }
+            .action-btn { margin: 2px; }
+        }
     </style>
 </head>
 <body>
-    <div id="loginForm" class="login-form">
-        <h2>后台登录</h2>
-        <input type="password" id="password" placeholder="输入密码" style="width: 100%; margin-bottom: 10px;">
-        <button onclick="checkPassword()" style="width: 100%;">登录</button>
-    </div>
-
-    <div id="adminPanel" class="hidden">
-        <h2>预约管理</h2>
-        <button onclick="loadReservations()">刷新</button>
-        <table id="reservationTable">
+    <div class="container">
+        <h1>
+            预约管理
+            <button class="refresh-btn" onclick="loadRecords()">刷新数据</button>
+        </h1>
+        
+        <table>
             <thead>
                 <tr>
                     <th>预约号</th>
                     <th>姓名</th>
                     <th>联系方式</th>
-                    <th>日期</th>
-                    <th>时间</th>
-                    <th>状态</th>
+                    <th>预约日期</th>
+                    <th>时间段</th>
+                    <th>会员状态</th>
+                    <th>服务状态</th>
                     <th>操作</th>
                 </tr>
             </thead>
-            <tbody></tbody>
+            <tbody id="recordsBody"></tbody>
         </table>
     </div>
 
     <script>
-        function formatTime(startTime) {
-            const [hour, minute] = startTime.split(':').map(Number);
-            let endHour = hour;
-            let endMinute = minute + 15;
-            if (endMinute >= 60) {
-                endHour += 1;
-                endMinute -= 60;
-            }
-            return `${startTime}-${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
-        }
-
-        function checkPassword() {
-            if (document.getElementById('password').value === 'qyjk123') {
-                document.getElementById('loginForm').classList.add('hidden');
-                document.getElementById('adminPanel').classList.remove('hidden');
-                loadReservations();
-            } else {
-                alert('密码错误！');
-            }
-        }
-
-        function loadReservations() {
-            const reservations = JSON.parse(localStorage.getItem('reservations')) || [];
-            const tbody = document.querySelector('#reservationTable tbody');
+        function loadRecords() {
+            const records = JSON.parse(localStorage.getItem('reservations') || '[]');
+            const tbody = document.getElementById('recordsBody');
             tbody.innerHTML = '';
 
-            reservations.forEach((res, index) => {
+            records.forEach((record, index) => {
+                const startTime = record.time;
+                const [hour, minute] = startTime.split(':').map(Number);
+                const endTime = new Date(0,0,0,hour,minute+30);
+                const endStr = `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`;
+
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${res.number}</td>
-                    <td>${res.name}</td>
-                    <td>${res.phone}</td>
-                    <td>${res.date}</td>
-                    <td>${formatTime(res.time)}</td>
+                    <td>${record.number}</td>
+                    <td>${record.name}</td>
+                    <td>${record.phone}</td>
+                    <td>${record.date}</td>
+                    <td>${startTime} - ${endStr}</td>
+                    <td>${record.isMember ? '✔️ 会员' : '✖️ 非会员'}</td>
                     <td>
-                        <select onchange="updateStatus(${index}, this.value)">
-                            <option ${res.status === '未使用' ? 'selected' : ''}>未使用</option>
-                            <option ${res.status === '已使用' ? 'selected' : ''}>已使用</option>
-                        </select>
+                        <button class="status-btn ${record.status === '已使用' ? 'status-inactive' : 'status-active'}" 
+                                onclick="toggleStatus(${index})">
+                            ${record.status}
+                        </button>
                     </td>
-                    <td><button onclick="deleteReservation(${index})">删除</button></td>
+                    <td>
+                        <button class="action-btn" style="background:#ff4444;color:white;" 
+                                onclick="deleteRecord(${index})">删除</button>
+                    </td>
                 `;
                 tbody.appendChild(row);
             });
         }
 
-        function updateStatus(index, newStatus) {
-            let reservations = JSON.parse(localStorage.getItem('reservations'));
-            reservations[index].status = newStatus;
-            localStorage.setItem('reservations', JSON.stringify(reservations));
+        function toggleStatus(index) {
+            const records = JSON.parse(localStorage.getItem('reservations'));
+            records[index].status = records[index].status === '已使用' ? '未使用' : '已使用';
+            localStorage.setItem('reservations', JSON.stringify(records));
+            loadRecords();
         }
 
-        function deleteReservation(index) {
-            let reservations = JSON.parse(localStorage.getItem('reservations'));
-            reservations.splice(index, 1);
-            localStorage.setItem('reservations', JSON.stringify(reservations));
-            loadReservations();
+        function deleteRecord(index) {
+            if(confirm('确定删除此记录？')) {
+                const records = JSON.parse(localStorage.getItem('reservations'));
+                records.splice(index, 1);
+                localStorage.setItem('reservations', JSON.stringify(records));
+                loadRecords();
+            }
         }
+
+        // 初始加载
+        loadRecords();
+        // 自动刷新（每分钟）
+        setInterval(loadRecords, 60000);
     </script>
 </body>
 </html>
- 
